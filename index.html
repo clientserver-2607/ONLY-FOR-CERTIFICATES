@@ -399,6 +399,13 @@
       background: var(--border);
       border-radius: 3px;
     }
+
+    footer {
+      text-align: center;
+      margin-top: 40px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
   </style>
 </head>
 <body>
@@ -511,6 +518,10 @@
         </div>
       </main>
     </div>
+
+    <footer>
+      @made by Rounak Chouhan
+    </footer>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -544,7 +555,6 @@
       const posYVal = document.getElementById('posYVal');
       const fontWeight = document.getElementById('fontWeight');
 
-      // Auto-load one.png from the same folder
       function tryLoadDefaultTemplate() {
         const img = new Image();
         img.crossOrigin = 'anonymous';
@@ -691,10 +701,8 @@
         canvas.height = h;
         const ctx = canvas.getContext('2d');
 
-        // Original certificate stays exactly the same
         ctx.drawImage(templateImage, 0, 0, w, h);
 
-        // Only the name is added
         const style = getStyle();
         const fontSizePx = style.fontSize * scale;
         ctx.font = style.weight + ' ' + fontSizePx + 'px ' + style.fontFamily;
