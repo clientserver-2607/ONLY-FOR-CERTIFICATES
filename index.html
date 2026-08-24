@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Certificate Generator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --surface2: #243044;
+      --border: #2d3a4f;
+      --text: #e8eef7;
+      --text-muted: #8b9cb3;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --success: #10b981;
+      --danger: #ef4444;
+      --radius: 12px;
+      --shadow: 0 8px 32px rgba(0,0,0,0.35);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    .app {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px 20px 60px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    header h1 {
+      font-size: 1.9rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 28px;
+      align-items: start;
+    }
+
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 28px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      background: var(--surface2);
+      margin-bottom: 12px;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(59, 130, 246, 0.08);
+    }
+
+    .upload-zone input { display: none; }
+
+    .upload-zone .icon {
+      font-size: 2rem;
+      margin-bottom: 8px;
+      opacity: 0.7;
+    }
+
+    .upload-zone p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .upload-zone .filename {
+      margin-top: 8px;
+      font-size: 0.8rem;
+      color: var(--accent);
+      word-break: break-all;
+    }
+
+    .names-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 12px;
+      max-height: 280px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .name-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .name-row input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .name-row input:focus { border-color: var(--accent); }
+    .name-row input::placeholder { color: var(--text-muted); }
+
+    .btn-icon {
+      width: 38px;
+      height: 38px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      font-weight: 600;
+      transition: background 0.2s, transform 0.1s;
+      flex-shrink: 0;
+    }
+
+    .btn-icon:active { transform: scale(0.95); }
+
+    .btn-add { background: var(--accent); color: white; }
+    .btn-add:hover { background: var(--accent-hover); }
+
+    .btn-remove {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+    }
+    .btn-remove:hover { background: rgba(239, 68, 68, 0.3); }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-group label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .control-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .control-group input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .control-group select,
+    .control-group input[type="number"],
+    .control-group input[type="color"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+      width: 100%;
+    }
+
+    .control-group input[type="color"] {
+      height: 38px;
+      padding: 4px;
+      cursor: pointer;
+    }
+
+    .value-display {
+      font-size: 0.75rem;
+      color: var(--accent);
+      text-align: right;
+    }
+
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s, opacity 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+
+    .btn-success { background: var(--success); color: white; }
+    .btn-success:hover:not(:disabled) { background: #059669; }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-outline:hover:not(:disabled) { background: var(--surface2); }
+
+    .previews-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .previews-header h2 { margin-bottom: 0; }
+
+    .preview-count {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      background: var(--surface2);
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+
+    .previews-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    .preview-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .preview-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    }
+
+    .preview-card .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+
+    .preview-card .card-header .name-label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 180px;
+    }
+
+    .preview-card .card-body {
+      padding: 12px;
+      background: #111;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 180px;
+    }
+
+    .preview-card canvas {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    }
+
+    .preview-card .card-footer {
+      padding: 10px 14px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .preview-card .card-footer .btn {
+      flex: 1;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+
+    .empty-state .icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+      opacity: 0.4;
+    }
+
+    .empty-state p { font-size: 0.95rem; }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 20px;
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      font-size: 0.9rem;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.3s, transform 0.3s;
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast.success { border-color: var(--success); }
+
+    .names-list::-webkit-scrollbar { width: 6px; }
+    .names-list::-webkit-scrollbar-track { background: transparent; }
+    .names-list::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Certificate Generator</h1>
+      <p>Upload a template, add names, adjust placement, and download individual PDFs</p>
+    </header>
+
+    <div class="layout">
+      <aside class="panel">
+        <h2>1. Certificate Template</h2>
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg,image/webp" />
+          <div class="icon">📄</div>
+          <p>Click or drag &amp; drop certificate image</p>
+          <p style="font-size:0.75rem;margin-top:4px;opacity:0.7">PNG, JPG, WEBP (use one.png from this folder)</p>
+          <div class="filename" id="fileName"></div>
+        </div>
+
+        <h2 style="margin-top:24px">2. Participant Names</h2>
+        <div class="names-list" id="namesList">
+          <div class="name-row">
+            <input type="text" placeholder="Enter participant name" class="name-input" />
+            <button type="button" class="btn-icon btn-add" title="Add another name">+</button>
+          </div>
+        </div>
+
+        <h2 style="margin-top:20px">3. Name Style &amp; Position</h2>
+        <div class="controls">
+          <div class="control-row">
+            <div class="control-group">
+              <label>Font Size <span class="value-display" id="fontSizeVal">38</span></label>
+              <input type="range" id="fontSize" min="12" max="120" value="38" />
+            </div>
+            <div class="control-group">
+              <label>Font Family</label>
+              <select id="fontFamily">
+                <option value="Georgia, serif" selected>Georgia (Serif)</option>
+                <option value="'Times New Roman', Times, serif">Times New Roman</option>
+                <option value="Arial, Helvetica, sans-serif">Arial</option>
+                <option value="'Segoe UI', system-ui, sans-serif">Segoe UI</option>
+                <option value="'Courier New', monospace">Courier New</option>
+                <option value="Verdana, sans-serif">Verdana</option>
+                <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+                <option value="Impact, sans-serif">Impact</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="control-row">
+            <div class="control-group">
+              <label>Text Color</label>
+              <input type="color" id="fontColor" value="#1a1a2e" />
+            </div>
+            <div class="control-group">
+              <label>Alignment</label>
+              <select id="textAlign">
+                <option value="center" selected>Center</option>
+                <option value="left">Left</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="control-row">
+            <div class="control-group">
+              <label>Horizontal (X %) <span class="value-display" id="posXVal">50</span></label>
+              <input type="range" id="posX" min="0" max="100" value="50" step="0.5" />
+            </div>
+            <div class="control-group">
+              <label>Vertical (Y %) <span class="value-display" id="posYVal">46</span></label>
+              <input type="range" id="posY" min="0" max="100" value="46" step="0.5" />
+            </div>
+          </div>
+
+          <div class="control-group">
+            <label>Font Weight</label>
+            <select id="fontWeight">
+              <option value="normal">Normal</option>
+              <option value="bold" selected>Bold</option>
+              <option value="600">Semi-Bold</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn btn-primary" id="btnPreview" disabled>
+            Generate Previews
+          </button>
+          <button type="button" class="btn btn-success" id="btnDownloadAll" disabled>
+            Download All as PDFs
+          </button>
+          <button type="button" class="btn btn-outline" id="btnClear">
+            Clear All
+          </button>
+        </div>
+      </aside>
+
+      <main class="panel">
+        <div class="previews-header">
+          <h2>Certificate Previews</h2>
+          <span class="preview-count" id="previewCount">0 certificates</span>
+        </div>
+        <div class="previews-grid" id="previewsGrid">
+          <div class="empty-state" id="emptyState">
+            <div class="icon">🎓</div>
+            <p>Upload a certificate template and add names<br>to see personalized previews here</p>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (function () {
+      let templateImage = null;
+      let templateNaturalW = 0;
+      let templateNaturalH = 0;
+
+      const uploadZone = document.getElementById('uploadZone');
+      const fileInput = document.getElementById('fileInput');
+      const fileName = document.getElementById('fileName');
+      const namesList = document.getElementById('namesList');
+      const previewsGrid = document.getElementById('previewsGrid');
+      const emptyState = document.getElementById('emptyState');
+      const previewCount = document.getElementById('previewCount');
+      const btnPreview = document.getElementById('btnPreview');
+      const btnDownloadAll = document.getElementById('btnDownloadAll');
+      const btnClear = document.getElementById('btnClear');
+      const toast = document.getElementById('toast');
+
+      const fontSize = document.getElementById('fontSize');
+      const fontSizeVal = document.getElementById('fontSizeVal');
+      const fontFamily = document.getElementById('fontFamily');
+      const fontColor = document.getElementById('fontColor');
+      const textAlign = document.getElementById('textAlign');
+      const posX = document.getElementById('posX');
+      const posXVal = document.getElementById('posXVal');
+      const posY = document.getElementById('posY');
+      const posYVal = document.getElementById('posYVal');
+      const fontWeight = document.getElementById('fontWeight');
+
+      // Auto-load one.png from the same folder
+      function tryLoadDefaultTemplate() {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function () {
+          templateImage = img;
+          templateNaturalW = img.naturalWidth;
+          templateNaturalH = img.naturalHeight;
+          fileName.textContent = 'one.png (loaded automatically)';
+          updateButtons();
+          showToast('Default template one.png loaded');
+        };
+        img.onerror = function () {};
+        img.src = 'one.png';
+      }
+
+      uploadZone.addEventListener('click', () => fileInput.click());
+      uploadZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadZone.classList.add('dragover');
+      });
+      uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+      uploadZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+      });
+      fileInput.addEventListener('change', () => {
+        if (fileInput.files.length) handleFile(fileInput.files[0]);
+      });
+
+      function handleFile(file) {
+        if (!file.type.startsWith('image/')) {
+          showToast('Please upload an image (PNG, JPG, WEBP). Convert PDF to PNG first.', false);
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            templateImage = img;
+            templateNaturalW = img.naturalWidth;
+            templateNaturalH = img.naturalHeight;
+            fileName.textContent = file.name;
+            updateButtons();
+            showToast('Template loaded successfully');
+            if (getNames().length) generatePreviews();
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+
+      namesList.addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-add')) {
+          addNameRow();
+        } else if (e.target.classList.contains('btn-remove')) {
+          const row = e.target.closest('.name-row');
+          if (namesList.querySelectorAll('.name-row').length > 1) {
+            row.remove();
+            fixAddButtons();
+            updateButtons();
+            if (templateImage) generatePreviews();
+          }
+        }
+      });
+
+      namesList.addEventListener('input', updateButtons);
+
+      namesList.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addNameRow();
+          const inputs = namesList.querySelectorAll('.name-input');
+          inputs[inputs.length - 1].focus();
+        }
+      });
+
+      function fixAddButtons() {
+        const rows = namesList.querySelectorAll('.name-row');
+        rows.forEach((row, i) => {
+          const btn = row.querySelector('.btn-icon');
+          if (i === rows.length - 1) {
+            btn.className = 'btn-icon btn-add';
+            btn.textContent = '+';
+            btn.title = 'Add another name';
+          } else {
+            btn.className = 'btn-icon btn-remove';
+            btn.textContent = '×';
+            btn.title = 'Remove';
+          }
+        });
+      }
+
+      function addNameRow() {
+        const row = document.createElement('div');
+        row.className = 'name-row';
+        row.innerHTML =
+          '<input type="text" placeholder="Enter participant name" class="name-input" />' +
+          '<button type="button" class="btn-icon btn-add" title="Add another name">+</button>';
+        namesList.appendChild(row);
+        fixAddButtons();
+        updateButtons();
+      }
+
+      function getNames() {
+        return Array.from(namesList.querySelectorAll('.name-input'))
+          .map((inp) => inp.value.trim())
+          .filter((n) => n.length > 0);
+      }
+
+      [fontSize, posX, posY].forEach((el) => {
+        el.addEventListener('input', () => {
+          fontSizeVal.textContent = fontSize.value;
+          posXVal.textContent = posX.value;
+          posYVal.textContent = posY.value;
+          if (templateImage && getNames().length) generatePreviews();
+        });
+      });
+      [fontFamily, fontColor, textAlign, fontWeight].forEach((el) => {
+        el.addEventListener('change', () => {
+          if (templateImage && getNames().length) generatePreviews();
+        });
+      });
+
+      btnPreview.addEventListener('click', generatePreviews);
+
+      function getStyle() {
+        return {
+          fontSize: parseInt(fontSize.value, 10),
+          fontFamily: fontFamily.value,
+          color: fontColor.value,
+          align: textAlign.value,
+          xPct: parseFloat(posX.value),
+          yPct: parseFloat(posY.value),
+          weight: fontWeight.value,
+        };
+      }
+
+      function drawCertificate(name, scale) {
+        const w = templateNaturalW * scale;
+        const h = templateNaturalH * scale;
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+
+        // Original certificate stays exactly the same
+        ctx.drawImage(templateImage, 0, 0, w, h);
+
+        // Only the name is added
+        const style = getStyle();
+        const fontSizePx = style.fontSize * scale;
+        ctx.font = style.weight + ' ' + fontSizePx + 'px ' + style.fontFamily;
+        ctx.fillStyle = style.color;
+        ctx.textAlign = style.align;
+        ctx.textBaseline = 'middle';
+
+        const x = (style.xPct / 100) * w;
+        const y = (style.yPct / 100) * h;
+
+        ctx.shadowColor = 'rgba(0,0,0,0.12)';
+        ctx.shadowBlur = 1.5 * scale;
+        ctx.shadowOffsetX = 0.5 * scale;
+        ctx.shadowOffsetY = 0.5 * scale;
+
+        ctx.fillText(name, x, y);
+
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+
+        return canvas;
+      }
+
+      function generatePreviews() {
+        const names = getNames();
+        if (!templateImage) {
+          showToast('Please upload a certificate template first', false);
+          return;
+        }
+        if (!names.length) {
+          showToast('Please enter at least one name', false);
+          return;
+        }
+
+        previewsGrid.innerHTML = '';
+        emptyState.style.display = 'none';
+
+        const maxPreviewW = 420;
+        const scale = Math.min(1, maxPreviewW / templateNaturalW);
+
+        names.forEach((name) => {
+          const canvas = drawCertificate(name, scale);
+          const fullCanvas = drawCertificate(name, 1);
+
+          const card = document.createElement('div');
+          card.className = 'preview-card';
+          card.dataset.name = name;
+          card.innerHTML =
+            '<div class="card-header">' +
+              '<span class="name-label" title="' + escapeHtml(name) + '">' + escapeHtml(name) + '</span>' +
+            '</div>' +
+            '<div class="card-body"></div>' +
+            '<div class="card-footer">' +
+              '<button type="button" class="btn btn-success btn-dl-one">Download PDF</button>' +
+            '</div>';
+
+          card.querySelector('.card-body').appendChild(canvas);
+          card._fullCanvas = fullCanvas;
+
+          card.querySelector('.btn-dl-one').addEventListener('click', () => {
+            downloadPDF(fullCanvas, name);
+          });
+
+          previewsGrid.appendChild(card);
+        });
+
+        previewCount.textContent = names.length + ' certificate' + (names.length !== 1 ? 's' : '');
+        btnDownloadAll.disabled = false;
+        showToast('Generated ' + names.length + ' preview' + (names.length !== 1 ? 's' : ''));
+      }
+
+      btnDownloadAll.addEventListener('click', async () => {
+        const cards = previewsGrid.querySelectorAll('.preview-card');
+        if (!cards.length) return;
+
+        btnDownloadAll.disabled = true;
+        btnDownloadAll.textContent = 'Downloading…';
+
+        for (let i = 0; i < cards.length; i++) {
+          const card = cards[i];
+          const name = card.dataset.name;
+          const fullCanvas = card._fullCanvas;
+          if (fullCanvas) {
+            await downloadPDF(fullCanvas, name);
+            await sleep(400);
+          }
+        }
+
+        btnDownloadAll.disabled = false;
+        btnDownloadAll.innerHTML = 'Download All as PDFs';
+        showToast('Downloaded ' + cards.length + ' PDF' + (cards.length !== 1 ? 's' : ''));
+      });
+
+      function downloadPDF(canvas, name) {
+        return new Promise((resolve) => {
+          const { jsPDF } = window.jspdf;
+          const imgW = canvas.width;
+          const imgH = canvas.height;
+          const orientation = imgW >= imgH ? 'landscape' : 'portrait';
+
+          const pageW = orientation === 'landscape' ? 297 : 210;
+          const pageH = orientation === 'landscape' ? 210 : 297;
+
+          const ratio = Math.min(pageW / imgW, pageH / imgH);
+          const renderW = imgW * ratio;
+          const renderH = imgH * ratio;
+          const offsetX = (pageW - renderW) / 2;
+          const offsetY = (pageH - renderH) / 2;
+
+          const pdf = new jsPDF({
+            orientation: orientation,
+            unit: 'mm',
+            format: 'a4',
+          });
+
+          const imgData = canvas.toDataURL('image/jpeg', 0.95);
+          pdf.addImage(imgData, 'JPEG', offsetX, offsetY, renderW, renderH);
+
+          const safeName = sanitizeFilename(name);
+          pdf.save(safeName + '.pdf');
+          resolve();
+        });
+      }
+
+      function sanitizeFilename(name) {
+        return name
+          .trim()
+          .replace(/\s+/g, '_')
+          .replace(/[^\w\-_.]/g, '')
+          .substring(0, 80) || 'certificate';
+      }
+
+      btnClear.addEventListener('click', () => {
+        templateImage = null;
+        templateNaturalW = 0;
+        templateNaturalH = 0;
+        fileName.textContent = '';
+        fileInput.value = '';
+        namesList.innerHTML =
+          '<div class="name-row">' +
+            '<input type="text" placeholder="Enter participant name" class="name-input" />' +
+            '<button type="button" class="btn-icon btn-add" title="Add another name">+</button>' +
+          '</div>';
+        previewsGrid.innerHTML = '';
+        previewsGrid.appendChild(emptyState);
+        emptyState.style.display = 'block';
+        previewCount.textContent = '0 certificates';
+        updateButtons();
+        showToast('Cleared');
+      });
+
+      function updateButtons() {
+        const hasTemplate = !!templateImage;
+        const hasNames = getNames().length > 0;
+        btnPreview.disabled = !(hasTemplate && hasNames);
+        btnDownloadAll.disabled = previewsGrid.querySelectorAll('.preview-card').length === 0;
+      }
+
+      function showToast(msg, success) {
+        if (success === undefined) success = true;
+        toast.textContent = msg;
+        toast.className = 'toast show' + (success ? ' success' : '');
+        clearTimeout(toast._t);
+        toast._t = setTimeout(function () {
+          toast.classList.remove('show');
+        }, 2800);
+      }
+
+      function escapeHtml(str) {
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+      }
+
+      function sleep(ms) {
+        return new Promise(function (r) { setTimeout(r, ms); });
+      }
+
+      updateButtons();
+      tryLoadDefaultTemplate();
+    })();
+  </script>
+</body>
+</html>
