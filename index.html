@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Certificate Generator</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- QRCode.js Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     :root {
       --bg: #0f1419;
@@ -211,6 +213,7 @@
 
     .control-group select,
     .control-group input[type="number"],
+    .control-group input[type="text"],
     .control-group input[type="color"] {
       background: var(--surface2);
       border: 1px solid var(--border);
@@ -225,6 +228,22 @@
     .control-group input[type="color"] {
       height: 38px;
       padding: 4px;
+      cursor: pointer;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: var(--text);
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
       cursor: pointer;
     }
 
@@ -400,6 +419,10 @@
       border-radius: 3px;
     }
 
+    #qrHiddenContainer {
+      display: none;
+    }
+
     footer {
       text-align: center;
       margin-top: 40px;
@@ -492,6 +515,46 @@
           </div>
         </div>
 
+        <!-- Section 4: QR Code -->
+        <h2 style="margin-top:20px">4. QR Code Settings</h2>
+        <div class="controls">
+          <div class="control-group">
+            <label class="checkbox-group">
+              <input type="checkbox" id="qrEnable" checked />
+              Add QR code with participant name
+            </label>
+          </div>
+
+          <div id="qrSettings">
+            <div class="control-group">
+              <label>QR Content Template</label>
+              <input type="text" id="qrText" value="Certificate of Participation | Name: {name} | Event: Introduction to DSA Masterclass | GEC Ajmer" />
+            </div>
+
+            <div class="control-row">
+              <div class="control-group">
+                <label>QR Size (px) <span class="value-display" id="qrSizeVal">100</span></label>
+                <input type="range" id="qrSize" min="40" max="200" value="100" />
+              </div>
+              <div class="control-group">
+                <label>Margin (px) <span class="value-display" id="qrMarginVal">6</span></label>
+                <input type="range" id="qrMargin" min="0" max="20" value="6" />
+              </div>
+            </div>
+
+            <div class="control-row">
+              <div class="control-group">
+                <label>Horizontal (X %) <span class="value-display" id="qrXVal">88</span></label>
+                <input type="range" id="qrX" min="0" max="100" value="88" step="0.5" />
+              </div>
+              <div class="control-group">
+                <label>Vertical (Y %) <span class="value-display" id="qrYVal">82</span></label>
+                <input type="range" id="qrY" min="0" max="100" value="82" step="0.5" />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="actions">
           <button type="button" class="btn btn-primary" id="btnPreview" disabled>
             Generate Previews
@@ -525,6 +588,7 @@
   </div>
 
   <div class="toast" id="toast"></div>
+  <div id="qrHiddenContainer"></div>
 
   <script>
     (function () {
@@ -554,6 +618,20 @@
       const posY = document.getElementById('posY');
       const posYVal = document.getElementById('posYVal');
       const fontWeight = document.getElementById('fontWeight');
+
+      // QR Elements
+      const qrEnable = document.getElementById('qrEnable');
+      const qrSettings = document.getElementById('qrSettings');
+      const qrText = document.getElementById('qrText');
+      const qrSize = document.getElementById('qrSize');
+      const qrSizeVal = document.getElementById('qrSizeVal');
+      const qrMargin = document.getElementById('qrMargin');
+      const qrMarginVal = document.getElementById('qrMarginVal');
+      const qrX = document.getElementById('qrX');
+      const qrXVal = document.getElementById('qrXVal');
+      const qrY = document.getElementById('qrY');
+      const qrYVal = document.getElementById('qrYVal');
+      const qrHiddenContainer = document.getElementById('qrHiddenContainer');
 
       function tryLoadDefaultTemplate() {
         const img = new Image();
@@ -665,18 +743,28 @@
           .filter((n) => n.length > 0);
       }
 
-      [fontSize, posX, posY].forEach((el) => {
+      [fontSize, posX, posY, qrSize, qrMargin, qrX, qrY].forEach((el) => {
         el.addEventListener('input', () => {
           fontSizeVal.textContent = fontSize.value;
           posXVal.textContent = posX.value;
           posYVal.textContent = posY.value;
+          qrSizeVal.textContent = qrSize.value;
+          qrMarginVal.textContent = qrMargin.value;
+          qrXVal.textContent = qrX.value;
+          qrYVal.textContent = qrY.value;
           if (templateImage && getNames().length) generatePreviews();
         });
       });
-      [fontFamily, fontColor, textAlign, fontWeight].forEach((el) => {
+
+      [fontFamily, fontColor, textAlign, fontWeight, qrText].forEach((el) => {
         el.addEventListener('change', () => {
           if (templateImage && getNames().length) generatePreviews();
         });
+      });
+
+      qrEnable.addEventListener('change', () => {
+        qrSettings.style.display = qrEnable.checked ? 'block' : 'none';
+        if (templateImage && getNames().length) generatePreviews();
       });
 
       btnPreview.addEventListener('click', generatePreviews);
@@ -690,10 +778,44 @@
           xPct: parseFloat(posX.value),
           yPct: parseFloat(posY.value),
           weight: fontWeight.value,
+          qrEnabled: qrEnable.checked,
+          qrTextTemplate: qrText.value,
+          qrSize: parseInt(qrSize.value, 10),
+          qrMargin: parseInt(qrMargin.value, 10),
+          qrXPct: parseFloat(qrX.value),
+          qrYPct: parseFloat(qrY.value)
         };
       }
 
-      function drawCertificate(name, scale) {
+      function generateQRCodeImage(content, size) {
+        return new Promise((resolve) => {
+          qrHiddenContainer.innerHTML = '';
+          const qr = new QRCode(qrHiddenContainer, {
+            text: content,
+            width: size,
+            height: size,
+            correctLevel: QRCode.CorrectLevel.H
+          });
+
+          setTimeout(() => {
+            const img = qrHiddenContainer.querySelector('img');
+            const canvas = qrHiddenContainer.querySelector('canvas');
+            if (img && img.src) {
+              const resImg = new Image();
+              resImg.onload = () => resolve(resImg);
+              resImg.src = img.src;
+            } else if (canvas) {
+              const resImg = new Image();
+              resImg.onload = () => resolve(resImg);
+              resImg.src = canvas.toDataURL();
+            } else {
+              resolve(null);
+            }
+          }, 50);
+        });
+      }
+
+      async function drawCertificate(name, scale) {
         const w = templateNaturalW * scale;
         const h = templateNaturalH * scale;
         const canvas = document.createElement('canvas');
@@ -704,6 +826,8 @@
         ctx.drawImage(templateImage, 0, 0, w, h);
 
         const style = getStyle();
+
+        // 1. Draw Name
         const fontSizePx = style.fontSize * scale;
         ctx.font = style.weight + ' ' + fontSizePx + 'px ' + style.fontFamily;
         ctx.fillStyle = style.color;
@@ -725,10 +849,34 @@
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
 
+        // 2. Draw QR Code if Enabled
+        if (style.qrEnabled) {
+          const content = style.qrTextTemplate.replace(/{name}/g, name);
+          const qrPx = style.qrSize * scale;
+          const qrMarginPx = style.qrMargin * scale;
+
+          const qrImg = await generateQRCodeImage(content, Math.round(qrPx));
+          if (qrImg) {
+            const qrXPos = (style.qrXPct / 100) * w - qrPx / 2;
+            const qrYPos = (style.qrYPct / 100) * h - qrPx / 2;
+
+            // Draw white background pad behind QR Code
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(
+              qrXPos - qrMarginPx,
+              qrYPos - qrMarginPx,
+              qrPx + qrMarginPx * 2,
+              qrPx + qrMarginPx * 2
+            );
+
+            ctx.drawImage(qrImg, qrXPos, qrYPos, qrPx, qrPx);
+          }
+        }
+
         return canvas;
       }
 
-      function generatePreviews() {
+      async function generatePreviews() {
         const names = getNames();
         if (!templateImage) {
           showToast('Please upload a certificate template first', false);
@@ -745,9 +893,9 @@
         const maxPreviewW = 420;
         const scale = Math.min(1, maxPreviewW / templateNaturalW);
 
-        names.forEach((name) => {
-          const canvas = drawCertificate(name, scale);
-          const fullCanvas = drawCertificate(name, 1);
+        for (const name of names) {
+          const canvas = await drawCertificate(name, scale);
+          const fullCanvas = await drawCertificate(name, 1);
 
           const card = document.createElement('div');
           card.className = 'preview-card';
@@ -769,7 +917,7 @@
           });
 
           previewsGrid.appendChild(card);
-        });
+        }
 
         previewCount.textContent = names.length + ' certificate' + (names.length !== 1 ? 's' : '');
         btnDownloadAll.disabled = false;
